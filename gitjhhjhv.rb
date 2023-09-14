@@ -352,53 +352,62 @@ class ShopifyAdapter
     end
 
 
-    def order_status_update
 
-      response = @conn.get("orders/5727904596277.json", @headers )
-      data = JSON.parse(response.body)
-      fullfillment_id = JSON.pretty_generate(data["order"]["fulfillments"][-1]["id"])
-      
-      response1 = @conn.get("orders/5727904596277/fulfillments.json", @headers )
-      data1 = JSON.parse(response1.body)
+  def order_status_update
 
+    payload={}
+    payload["outlet_id"] = "1"
+    payload["order_number"] = "2875-1003-1066" 
 
-      # a ={
-      #   "success1" => "order_is_ready",
-      #   "picked_up" => "order_picked",
-      #   "in_transit" => "out_for_delivery",
-      #   "delivered" => "order_delivered",
-      # } 
-      payload={}
-      payload["outlet_id"] = "1"
-      payload["order_number"] = "2875-1003-1060" 
-      # # puts data1
-      # puts data1["fulfillments"]["shipment_status"]
-    
-      # if !(data["order"]["cancelled_at"]).nil?
-      #   payload["new_status"] = "order_canceled"
-      #   payload["cancel_reason"] = data["order"]["cancel_reason"]
-      elsif data1["fulfillments"]["shipment_status"] == nil
-        a=["order_accepted","order_in_kitchen","order_is_ready"]
-        a.each do |x|
-          payload["new_status"] = x
-          response3 = @conn2.post("update_order_status.json", payload.to_json )
-          data3 = JSON.parse(response3.body)
-          puts data3
+    response5 = @conn.get("orders.json?status=any", @headers )
+    data5 = JSON.parse(response5.body)
+
+    data5["orders"].each do |i|
+      if i["source_identifier"] == payload["order_number"]
+        a = i["source_identifier"]
+        b = i["id"]
+        puts b
+
+        response = @conn.get("orders/#{b}.json", @headers )
+        data = JSON.parse(response.body)
+        if (data["order"]["fulfillments"]) == []
+          puts "fulfill the items before order_status_update"
+        else
+          fullfillment_id = JSON.pretty_generate(data["order"]["fulfillments"][-1]["id"])
+          
+          response1 = @conn.get("orders/#{b}/fulfillments/#{fullfillment_id}.json", @headers )
+          data1 = JSON.parse(response1.body)
+          # puts data1
+          puts data1["fulfillment"]["shipment_status"]
+
+          a ={
+            "ready_for_pickup" => "order_picked",
+            "out_for_delivery" => "out_for_delivery",
+            "delivered" => "order_delivered",
+            
+          } 
+
+          if !(data["order"]["cancelled_at"]).nil?
+            payload["new_status"] = "order_canceled"
+            payload["cancel_reason"] = data["order"]["cancel_reason"]
+          elsif data1["fulfillment"]["shipment_status"] == nil
+            list = ["order_accepted","order_in_kitchen","order_is_ready"]
+            list.each do |i|
+                payload["new_status"] = i
+                response3 = @conn2.post("update_order_status.json", payload.to_json )
+                data3 = JSON.parse(response3.body)
+                puts data3         
+            end
+          elsif a.include? data1["fulfillment"]["shipment_status"] 
+            payload["new_status"]  = a[data1["fulfillment"]["shipment_status"]]
+            response3 = @conn2.post("update_order_status.json", payload.to_json )
+            puts JSON.parse(response3.body)
+          end 
         end
-
-      # elsif a.include? data1["fulfillment_event"]["status"] 
-      #   payload["new_status"]  = a[data1["fulfillment_event"]["status"]]
-      # else 
-      #   payload["new_status"]  = "order_placed"
-      # end
-      
-      # payload = {"outlet_id":"1","order_number":"2875-1003-1060","new_status":"order_in_kitchen"}
-      # response3 = @conn2.post("update_order_status.json", payload.to_json )
-      # data3 = JSON.parse(response3.body)
-      # puts data3
-
-
+      end
     end
+
+  end
     
     def rider_status_update
       response = @conn.get("orders/5724006547765.json", @headers )
